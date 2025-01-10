@@ -16,6 +16,9 @@ python-dotenv = "^1.0.1"  # 環境變量讀取工具
 pytest = "^8.3.4"  # 測試框架，版本不受影響
 flask = "^3.1.0"  # 與 langchain 無關，可保持原版本
 pandas = "^2.2.3"  # 與 langchain 無直接關聯，可保持原版本
+line-bot-sdk = "^3.14.2"
+langchain-openai = "^0.2.14"
+pymysql = "^1.1.1"
 
 
 

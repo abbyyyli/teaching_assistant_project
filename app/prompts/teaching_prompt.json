@@ -1,0 +1,6 @@
+{
+    "template": "Generate a detailed and structured teaching plan for the topic: {topic}. Include objectives, key concepts, and examples.",
+    "fields": {
+        "topic": "string"
+    }
+}
