@@ -19,6 +19,8 @@ pandas = "^2.2.3"  # 與 langchain 無直接關聯，可保持原版本
 line-bot-sdk = "^3.14.2"
 langchain-openai = "^0.2.14"
 pymysql = "^1.1.1"
+redis = "^5.2.1"
+cryptography = "^44.0.0"
 
 
 
