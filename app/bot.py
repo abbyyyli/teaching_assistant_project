@@ -1,39 +1,95 @@
-from flask import Flask, request
-from linebot import LineBotApi, WebhookHandler
-from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage
-from utils.redis_manager import RedisManager
-from handlers.message_handler import handle_text_message
 
+
+
+from flask import Flask, request, abort
+from linebot.v3 import WebhookHandler
+from linebot.v3.exceptions import InvalidSignatureError
+from linebot.v3.messaging import (
+    Configuration,
+    ApiClient,
+    MessagingApi,
+    ReplyMessageRequest,
+    TextMessage
+)
+from linebot.v3.webhooks import MessageEvent, TextMessageContent
+from app.utils.llm_connector import LLMConnector  # 引入 LLMConnector
+
+# 初始化 Flask 應用
 app = Flask(__name__)
 
-# LINE API credentials (use environment variables)
-import config
-line_bot_api = LineBotApi(config.LINE_CHANNEL_ACCESS_TOKEN)
-handler = WebhookHandler(config.LINE_CHANNEL_SECRET)
+# LINE Messaging API 配置 (直接使用 token 和 secret)
+LINE_CHANNEL_ACCESS_TOKEN = "MUzguO7e5msnSTyVnkCPM2mQgwOxVVxYl8EPZ5NdzP6m96THAEYavLqQeR56vQrWMtYPI6ic+jPfeP+2/oZoCcPaeH/RHT9KzHN4b2fnkPiseYrKSpP/2Vd8fw8gRU7uwSDRnbhbinnY0HvJCR0aZAdB04t89/1O/w1cDnyilFU="
+LINE_CHANNEL_SECRET = "ac2487b61b56c668a934140c7948adc0"
 
-# Redis for session management
-redis_manager = RedisManager()
+configuration = Configuration(access_token=LINE_CHANNEL_ACCESS_TOKEN)
+handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-@app.route("/callback", methods=["POST"])
+# 初始化 LLMConnector
+llm_connector = LLMConnector(
+    model="gpt-3.5-turbo",  # 或 "gpt-4"
+    temperature=0.7
+)
+
+@app.route("/callback", methods=['POST'])
 def callback():
-    # Get LINE signature header
-    signature = request.headers["X-Line-Signature"]
+    """
+    處理 LINE Webhook 請求
+    """
+    # 獲取簽名和請求內容
+    signature = request.headers.get('X-Line-Signature')
+    if not signature:
+        abort(400, description="Missing X-Line-Signature header")
+    
     body = request.get_data(as_text=True)
+    app.logger.info(f"Request body: {body}")
 
-    # Handle webhook body
     try:
+        # 使用 WebhookHandler 驗證並解析事件
         handler.handle(body, signature)
     except InvalidSignatureError:
-        return "Invalid signature", 400
+        app.logger.error("Invalid signature. Please check your channel access token/channel secret.")
+        abort(400, description="Invalid signature")
+    except Exception as e:
+        app.logger.error(f"Unhandled error: {e}")
+        abort(500, description="Unhandled error")
 
-    return "OK"
+    return 'OK'
 
-@handler.add(MessageEvent, message=TextMessage)
+@handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event):
-    user_message = event.message.text
-    reply_message = handle_text_message(user_message, redis_manager)
-    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply_message))
+    """
+    處理來自用戶的文字消息
+    """
+    app.logger.info("Entering handle_message...")  # Debug：進入函數
+    user_message = event.message.text.strip().lower()  # 獲取用戶消息並轉小寫
+    app.logger.info(f"Received text: {user_message}")  # Debug：打印接收到的訊息
+
+    # 預定義回應
+    predefined_responses = {
+        "hi": "Whatup",
+        "missyou": "Awww! Miss you too!"
+    }
+
+    # 根據用戶輸入決定回應
+    if user_message in predefined_responses:
+        reply = predefined_responses[user_message]
+    else:
+        app.logger.info("Querying LLM...")
+        reply = llm_connector.generate_response(user_message)  # 使用 LLM 生成回應
+
+    # 回應用戶
+    try:
+        with ApiClient(configuration) as api_client:
+            messaging_api = MessagingApi(api_client)
+            messaging_api.reply_message_with_http_info(
+                ReplyMessageRequest(
+                    reply_token=event.reply_token,
+                    messages=[TextMessage(text=reply)]
+                )
+            )
+        app.logger.info(f"Replied: {reply}")  # Debug：確認回覆
+    except Exception as e:
+        app.logger.error(f"Unhandled error in handle_message: {e}")
 
 if __name__ == "__main__":
-    app.run(port=5000)
+    app.run(debug=True, port=5002, host="0.0.0.0")
