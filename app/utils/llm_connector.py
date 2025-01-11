@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
-from langchain_community.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
+
 load_dotenv()
 
 class LLMConnector:
@@ -24,19 +25,10 @@ class LLMConnector:
         """
         發送 Prompt 到 LLM 並獲取結果
         :param prompt: 用戶輸入的文字
-        :return: LLM 回應
+        :return: LLM 回應的純文字
         """
         try:
-            response = self.client.predict(prompt)
-            return response
+            response = self.client.invoke(prompt)  # 獲取 AIMessage 對象
+            return response.content  # 提取純文字內容
         except Exception as e:
             return f"Error querying LLM: {str(e)}"
-
-# 建立單例實例
-llm_connector = LLMConnector()
-
-# 測試用例
-if __name__ == "__main__":
-    test_prompt = "What is the capital of France?"
-    result = llm_connector.generate_response(test_prompt)
-    print(f"Prompt: {test_prompt}\nResponse: {result}\n")

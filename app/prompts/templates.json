@@ -1,0 +1,6 @@
+{
+    "teaching_template": "Explain the topic: {topic}. Provide examples and an exercise at the end.",
+    "quiz_template": "Create a quiz with 5 multiple-choice questions about: {topic}. Include answers.",
+    "feedback_template": "Analyze this response: {response} and provide constructive feedback."
+  }
+  
